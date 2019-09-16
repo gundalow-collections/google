@@ -1,0 +1,148 @@
+- name: create a address
+  register: address
+  google.gcp.gcp_compute_address:
+    name: address-forwardingrule
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: create a target pool
+  register: targetpool
+  google.gcp.gcp_compute_target_pool:
+    name: targetpool-forwardingrule
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: delete a forwarding rule
+  google.gcp.gcp_compute_forwarding_rule:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target: '{{ targetpool }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    ip_address: '{{ address.address }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: create a forwarding rule
+  register: result
+  google.gcp.gcp_compute_forwarding_rule:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target: '{{ targetpool }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    ip_address: '{{ address.address }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that forwarding_rule was created
+  register: results
+  google.gcp.gcp_compute_forwarding_rule_info:
+    filters:
+    - name = {{ resource_name }}
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 1
+- name: create a forwarding rule that already exists
+  register: result
+  google.gcp.gcp_compute_forwarding_rule:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target: '{{ targetpool }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    ip_address: '{{ address.address }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a forwarding rule
+  register: result
+  google.gcp.gcp_compute_forwarding_rule:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target: '{{ targetpool }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    ip_address: '{{ address.address }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that forwarding_rule was deleted
+  register: results
+  google.gcp.gcp_compute_forwarding_rule_info:
+    filters:
+    - name = {{ resource_name }}
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 0
+- name: delete a forwarding rule that does not exist
+  register: result
+  google.gcp.gcp_compute_forwarding_rule:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target: '{{ targetpool }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    ip_address: '{{ address.address }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a target pool
+  register: targetpool
+  ignore_errors: true
+  google.gcp.gcp_compute_target_pool:
+    name: targetpool-forwardingrule
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: delete a address
+  register: address
+  ignore_errors: true
+  google.gcp.gcp_compute_address:
+    name: address-forwardingrule
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent

@@ -1,0 +1,122 @@
+- name: create a disk
+  register: disk
+  google.gcp.gcp_compute_disk:
+    name: disk-snapshot
+    zone: us-central1-a
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: delete a snapshot
+  google.gcp.gcp_compute_snapshot:
+    name: '{{ resource_name }}'
+    source_disk: '{{ disk }}'
+    zone: us-central1-a
+    labels:
+      my_label: value
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: create a snapshot
+  register: result
+  google.gcp.gcp_compute_snapshot:
+    name: '{{ resource_name }}'
+    source_disk: '{{ disk }}'
+    zone: us-central1-a
+    labels:
+      my_label: value
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that snapshot was created
+  register: results
+  google.gcp.gcp_compute_snapshot_info:
+    filters:
+    - name = {{ resource_name }}
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 1
+- name: create a snapshot that already exists
+  register: result
+  google.gcp.gcp_compute_snapshot:
+    name: '{{ resource_name }}'
+    source_disk: '{{ disk }}'
+    zone: us-central1-a
+    labels:
+      my_label: value
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a snapshot
+  register: result
+  google.gcp.gcp_compute_snapshot:
+    name: '{{ resource_name }}'
+    source_disk: '{{ disk }}'
+    zone: us-central1-a
+    labels:
+      my_label: value
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that snapshot was deleted
+  register: results
+  google.gcp.gcp_compute_snapshot_info:
+    filters:
+    - name = {{ resource_name }}
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 0
+- name: delete a snapshot that does not exist
+  register: result
+  google.gcp.gcp_compute_snapshot:
+    name: '{{ resource_name }}'
+    source_disk: '{{ disk }}'
+    zone: us-central1-a
+    labels:
+      my_label: value
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a disk
+  register: disk
+  ignore_errors: true
+  google.gcp.gcp_compute_disk:
+    name: disk-snapshot
+    zone: us-central1-a
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent

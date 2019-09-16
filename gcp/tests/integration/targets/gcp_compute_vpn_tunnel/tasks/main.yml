@@ -1,0 +1,180 @@
+- name: create a network
+  register: network
+  google.gcp.gcp_compute_network:
+    name: network-vpn-tunnel
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: create a router
+  register: router
+  google.gcp.gcp_compute_router:
+    name: router-vpn-tunnel
+    network: '{{ network }}'
+    bgp:
+      asn: 64514
+      advertise_mode: CUSTOM
+      advertised_groups:
+      - ALL_SUBNETS
+      advertised_ip_ranges:
+      - range: 1.2.3.4
+      - range: 6.7.0.0/16
+    region: us-central1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: create a target vpn gateway
+  register: gateway
+  google.gcp.gcp_compute_target_vpn_gateway:
+    name: gateway-vpn-tunnel
+    region: us-west1
+    network: '{{ network }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: delete a vpn tunnel
+  google.gcp.gcp_compute_vpn_tunnel:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target_vpn_gateway: '{{ gateway }}'
+    router: '{{ router }}'
+    shared_secret: super secret
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: create a vpn tunnel
+  register: result
+  google.gcp.gcp_compute_vpn_tunnel:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target_vpn_gateway: '{{ gateway }}'
+    router: '{{ router }}'
+    shared_secret: super secret
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that vpn_tunnel was created
+  register: results
+  google.gcp.gcp_compute_vpn_tunnel_info:
+    filters:
+    - name = {{ resource_name }}
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 1
+- name: create a vpn tunnel that already exists
+  register: result
+  google.gcp.gcp_compute_vpn_tunnel:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target_vpn_gateway: '{{ gateway }}'
+    router: '{{ router }}'
+    shared_secret: super secret
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a vpn tunnel
+  register: result
+  google.gcp.gcp_compute_vpn_tunnel:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target_vpn_gateway: '{{ gateway }}'
+    router: '{{ router }}'
+    shared_secret: super secret
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that vpn_tunnel was deleted
+  register: results
+  google.gcp.gcp_compute_vpn_tunnel_info:
+    filters:
+    - name = {{ resource_name }}
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 0
+- name: delete a vpn tunnel that does not exist
+  register: result
+  google.gcp.gcp_compute_vpn_tunnel:
+    name: '{{ resource_name }}'
+    region: us-west1
+    target_vpn_gateway: '{{ gateway }}'
+    router: '{{ router }}'
+    shared_secret: super secret
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a target vpn gateway
+  register: gateway
+  ignore_errors: true
+  google.gcp.gcp_compute_target_vpn_gateway:
+    name: gateway-vpn-tunnel
+    region: us-west1
+    network: '{{ network }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: delete a router
+  register: router
+  ignore_errors: true
+  google.gcp.gcp_compute_router:
+    name: router-vpn-tunnel
+    network: '{{ network }}'
+    bgp:
+      asn: 64514
+      advertise_mode: CUSTOM
+      advertised_groups:
+      - ALL_SUBNETS
+      advertised_ip_ranges:
+      - range: 1.2.3.4
+      - range: 6.7.0.0/16
+    region: us-central1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: delete a network
+  register: network
+  ignore_errors: true
+  google.gcp.gcp_compute_network:
+    name: network-vpn-tunnel
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent

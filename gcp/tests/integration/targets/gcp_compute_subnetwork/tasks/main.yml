@@ -1,0 +1,119 @@
+- name: create a network
+  register: network
+  google.gcp.gcp_compute_network:
+    name: network-subnetwork
+    auto_create_subnetworks: 'true'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: delete a subnetwork
+  google.gcp.gcp_compute_subnetwork:
+    name: ansiblenet
+    region: us-west1
+    network: '{{ network }}'
+    ip_cidr_range: 172.16.0.0/16
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: create a subnetwork
+  register: result
+  google.gcp.gcp_compute_subnetwork:
+    name: ansiblenet
+    region: us-west1
+    network: '{{ network }}'
+    ip_cidr_range: 172.16.0.0/16
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that subnetwork was created
+  register: results
+  google.gcp.gcp_compute_subnetwork_info:
+    filters:
+    - name = ansiblenet
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 1
+- name: create a subnetwork that already exists
+  register: result
+  google.gcp.gcp_compute_subnetwork:
+    name: ansiblenet
+    region: us-west1
+    network: '{{ network }}'
+    ip_cidr_range: 172.16.0.0/16
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a subnetwork
+  register: result
+  google.gcp.gcp_compute_subnetwork:
+    name: ansiblenet
+    region: us-west1
+    network: '{{ network }}'
+    ip_cidr_range: 172.16.0.0/16
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that subnetwork was deleted
+  register: results
+  google.gcp.gcp_compute_subnetwork_info:
+    filters:
+    - name = ansiblenet
+    region: us-west1
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 0
+- name: delete a subnetwork that does not exist
+  register: result
+  google.gcp.gcp_compute_subnetwork:
+    name: ansiblenet
+    region: us-west1
+    network: '{{ network }}'
+    ip_cidr_range: 172.16.0.0/16
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a network
+  register: network
+  ignore_errors: true
+  google.gcp.gcp_compute_network:
+    name: network-subnetwork
+    auto_create_subnetworks: 'true'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent

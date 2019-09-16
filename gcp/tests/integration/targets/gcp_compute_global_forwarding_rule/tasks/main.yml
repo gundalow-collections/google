@@ -1,0 +1,229 @@
+- name: create a global address
+  register: globaladdress
+  google.gcp.gcp_compute_global_address:
+    name: globaladdress-globalforwardingrule
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: create a instance group
+  register: instancegroup
+  google.gcp.gcp_compute_instance_group:
+    name: instancegroup-globalforwardingrule
+    zone: us-central1-a
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: create a HTTP health check
+  register: healthcheck
+  google.gcp.gcp_compute_http_health_check:
+    name: httphealthcheck-globalforwardingrule
+    healthy_threshold: 10
+    port: 8080
+    timeout_sec: 2
+    unhealthy_threshold: 5
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: create a backend service
+  register: backendservice
+  google.gcp.gcp_compute_backend_service:
+    name: backendservice-globalforwardingrule
+    backends:
+    - group: '{{ instancegroup.selfLink }}'
+    health_checks:
+    - '{{ healthcheck.selfLink }}'
+    enable_cdn: 'true'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: create a URL map
+  register: urlmap
+  google.gcp.gcp_compute_url_map:
+    name: urlmap-globalforwardingrule
+    default_service: '{{ backendservice }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: create a target HTTP proxy
+  register: httpproxy
+  google.gcp.gcp_compute_target_http_proxy:
+    name: targethttpproxy-globalforwardingrule
+    url_map: '{{ urlmap }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: delete a global forwarding rule
+  google.gcp.gcp_compute_global_forwarding_rule:
+    name: '{{ resource_name }}'
+    ip_address: '{{ globaladdress.address }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    target: '{{ httpproxy.selfLink }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: create a global forwarding rule
+  register: result
+  google.gcp.gcp_compute_global_forwarding_rule:
+    name: '{{ resource_name }}'
+    ip_address: '{{ globaladdress.address }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    target: '{{ httpproxy.selfLink }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that global_forwarding_rule was created
+  register: results
+  google.gcp.gcp_compute_global_forwarding_rule_info:
+    filters:
+    - name = {{ resource_name }}
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 1
+- name: create a global forwarding rule that already exists
+  register: result
+  google.gcp.gcp_compute_global_forwarding_rule:
+    name: '{{ resource_name }}'
+    ip_address: '{{ globaladdress.address }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    target: '{{ httpproxy.selfLink }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: present
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a global forwarding rule
+  register: result
+  google.gcp.gcp_compute_global_forwarding_rule:
+    name: '{{ resource_name }}'
+    ip_address: '{{ globaladdress.address }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    target: '{{ httpproxy.selfLink }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is true
+  assert:
+    that:
+    - result.changed == true
+- name: verify that global_forwarding_rule was deleted
+  register: results
+  google.gcp.gcp_compute_global_forwarding_rule_info:
+    filters:
+    - name = {{ resource_name }}
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    scopes:
+    - https://www.googleapis.com/auth/compute
+- name: verify that command succeeded
+  assert:
+    that:
+    - results['resources'] | length == 0
+- name: delete a global forwarding rule that does not exist
+  register: result
+  google.gcp.gcp_compute_global_forwarding_rule:
+    name: '{{ resource_name }}'
+    ip_address: '{{ globaladdress.address }}'
+    ip_protocol: TCP
+    port_range: 80-80
+    target: '{{ httpproxy.selfLink }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: assert changed is false
+  assert:
+    that:
+    - result.changed == false
+- name: delete a target HTTP proxy
+  register: httpproxy
+  ignore_errors: true
+  google.gcp.gcp_compute_target_http_proxy:
+    name: targethttpproxy-globalforwardingrule
+    url_map: '{{ urlmap }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: delete a URL map
+  register: urlmap
+  ignore_errors: true
+  google.gcp.gcp_compute_url_map:
+    name: urlmap-globalforwardingrule
+    default_service: '{{ backendservice }}'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: delete a backend service
+  register: backendservice
+  ignore_errors: true
+  google.gcp.gcp_compute_backend_service:
+    name: backendservice-globalforwardingrule
+    backends:
+    - group: '{{ instancegroup.selfLink }}'
+    health_checks:
+    - '{{ healthcheck.selfLink }}'
+    enable_cdn: 'true'
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: delete a HTTP health check
+  register: healthcheck
+  ignore_errors: true
+  google.gcp.gcp_compute_http_health_check:
+    name: httphealthcheck-globalforwardingrule
+    healthy_threshold: 10
+    port: 8080
+    timeout_sec: 2
+    unhealthy_threshold: 5
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: delete a instance group
+  register: instancegroup
+  ignore_errors: true
+  google.gcp.gcp_compute_instance_group:
+    name: instancegroup-globalforwardingrule
+    zone: us-central1-a
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
+- name: delete a global address
+  register: globaladdress
+  ignore_errors: true
+  google.gcp.gcp_compute_global_address:
+    name: globaladdress-globalforwardingrule
+    project: '{{ gcp_project }}'
+    auth_kind: '{{ gcp_cred_kind }}'
+    service_account_file: '{{ gcp_cred_file }}'
+    state: absent
